@@ -1,16 +1,36 @@
 package com.mrakin;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+import com.mrakin.service.ApiClient;
+import com.mrakin.service.ExtractionService;
+import com.mrakin.service.MatcherService;
+
+import java.util.Set;
+
 public class Main {
-    static void main() {
-        //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-        // to see how IntelliJ IDEA suggests fixing it.
-        IO.println(String.format("Hello and welcome!"));
-        for (int i = 1; i <= 5; i++) {
-            //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-            // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-            IO.println("i = " + i);
+    public static void main(String[] args) {
+        String apiKey = System.getProperty("apiKey", System.getenv("API_KEY"));
+        int iterations = Integer.parseInt(System.getProperty("iterations", "100"));
+
+        if (apiKey == null || apiKey.isEmpty()) {
+            System.err.println("API key is required. Provide it via -DapiKey or API_KEY environment variable.");
+            System.exit(1);
+        }
+
+        try {
+            ApiClient apiClient = new ApiClient(apiKey);
+            MatcherService matcherService = new MatcherService();
+            ExtractionService extractionService = new ExtractionService(apiClient, matcherService);
+
+            Set<String> matches = extractionService.runExtraction(iterations);
+
+            System.out.println("\nMatches (alertId,termId):");
+            matches.forEach(System.out::println);
+            System.out.println("\nTotal unique matches: " + matches.size());
+
+        } catch (Exception e) {
+            System.err.println("Error during extraction: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
         }
     }
 }
