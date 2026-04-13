@@ -1,35 +1,35 @@
 package com.mrakin;
 
-import com.mrakin.service.ApiClient;
+import com.mrakin.model.Match;
 import com.mrakin.service.ExtractionService;
+import com.mrakin.service.HttpApiClient;
 import com.mrakin.service.MatcherService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 
 public class Main {
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
     public static void main(String[] args) {
         String apiKey = System.getProperty("apiKey", System.getenv("API_KEY"));
         int iterations = Integer.parseInt(System.getProperty("iterations", "100"));
 
         if (apiKey == null || apiKey.isEmpty()) {
-            System.err.println("API key is required. Provide it via -DapiKey or API_KEY environment variable.");
+            log.error("API key is required. Provide it via -DapiKey or API_KEY environment variable.");
             System.exit(1);
         }
 
         try {
-            ApiClient apiClient = new ApiClient(apiKey);
-            MatcherService matcherService = new MatcherService();
-            ExtractionService extractionService = new ExtractionService(apiClient, matcherService);
+            Set<Match> matches = new ExtractionService(new HttpApiClient(apiKey), new MatcherService())
+                    .runExtraction(iterations);
 
-            Set<String> matches = extractionService.runExtraction(iterations);
-
-            System.out.println("\nMatches (alertId,termId):");
-            matches.forEach(System.out::println);
-            System.out.println("\nTotal unique matches: " + matches.size());
+            log.info("Matches (alertId,termId):");
+            matches.forEach(m -> log.info("  {}", m));
 
         } catch (Exception e) {
-            System.err.println("Error during extraction: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error during extraction: {}", e.getMessage(), e);
             System.exit(1);
         }
     }

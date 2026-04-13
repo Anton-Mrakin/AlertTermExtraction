@@ -1,14 +1,18 @@
 package com.mrakin.service;
 
 import com.mrakin.model.Alert;
+import com.mrakin.model.Match;
 import com.mrakin.model.QueryTerm;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class ExtractionService {
+    private static final Logger log = LoggerFactory.getLogger(ExtractionService.class);
+
     private final ApiClient apiClient;
     private final MatcherService matcherService;
 
@@ -17,30 +21,31 @@ public class ExtractionService {
         this.matcherService = matcherService;
     }
 
-    public Set<String> runExtraction(int iterations) throws IOException, InterruptedException {
-        System.out.println("Fetching query terms...");
+    public Set<Match> runExtraction(int iterations) {
+        log.info("Fetching query terms...");
         List<QueryTerm> queryTerms = apiClient.getQueryTerms();
-        System.out.println("Found " + queryTerms.size() + " query terms.");
+        log.info("Found {} query terms.", queryTerms.size());
 
-        Set<String> results = new HashSet<>();
+        Set<Match> results = new HashSet<>();
 
         for (int i = 0; i < iterations; i++) {
-            System.out.println("Processing batch " + (i + 1) + " of " + iterations + "...");
+            log.info("Processing batch {} of {}...", i + 1, iterations);
             List<Alert> alerts = apiClient.getAlerts();
 
             for (Alert alert : alerts) {
+                if (alert.contents() == null) continue;
                 for (QueryTerm term : queryTerms) {
-                    if (alert.contents() != null) {
-                        boolean found = alert.contents().stream()
-                                .anyMatch(content -> matcherService.matches(content.text(), term));
-
-                        if (found) {
-                            results.add(alert.id() + "," + term.id());
-                        }
+                    boolean found = alert.contents().stream()
+                            .filter(content -> term.language().equals(content.language()))
+                            .anyMatch(content -> matcherService.matches(content.text(), term));
+                    if (found) {
+                        results.add(new Match(alert.id(), term.id()));
                     }
                 }
             }
         }
+
+        log.info("Extraction complete. Total unique matches: {}", results.size());
         return results;
     }
 }
